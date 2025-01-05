@@ -1,0 +1,156 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+// Interface untuk ERC20 Token (Pi Coin)
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+}
+
+// Smart contract untuk Stabilisasi Nilai Pi Coin
+contract PiStabilizer {
+    IERC20 public piCoin;  // Token Pi Coin
+    address public owner;
+    uint256 public targetPrice = 314159 * 1e18;  // $314.159 dalam unit wei (18 desimal)
+    uint256 public reserveLiquidity;  // Cadangan likuiditas
+    uint256 public totalSupplyAtTargetPrice;  // Jumlah pasokan Pi Coin yang sesuai dengan target harga
+    
+    // Event untuk perubahan harga
+    event PriceAdjusted(uint256 newPrice, uint256 newSupply);
+
+    // Modifier untuk hanya dapat diakses oleh pemilik
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Hanya pemilik yang bisa melakukan ini.");
+        _;
+    }
+
+    // Konstruktor untuk menginisialisasi kontrak
+    constructor(address _piCoinAddress) {
+        piCoin = IERC20(_piCoinAddress);
+        owner = msg.sender;
+        reserveLiquidity = 0;  // Awal cadangan likuiditas
+        totalSupplyAtTargetPrice = 1000000 * 1e18; // Misalnya 1 juta Pi Coin pada $314.159
+    }
+
+    // Fungsi untuk memperbarui cadangan likuiditas
+    function updateLiquidity(uint256 liquidityAmount) external onlyOwner {
+        reserveLiquidity = liquidityAmount;
+    }
+
+    // Fungsi untuk menghitung harga berdasarkan cadangan likuiditas
+    function calculatePrice() public view returns (uint256) {
+        uint256 currentSupply = piCoin.totalSupply();
+        return (reserveLiquidity * 1e18) / currentSupply;
+    }
+
+    // Fungsi untuk menyesuaikan harga Pi Coin
+    function adjustPrice() external {
+        uint256 currentPrice = calculatePrice();
+        uint256 currentSupply = piCoin.totalSupply();
+        
+        // Menyesuaikan pasokan agar sesuai dengan harga target
+        if (currentPrice > targetPrice) {
+            uint256 supplyAdjustment = (currentPrice - targetPrice) * currentSupply / targetPrice;
+            piCoin.transfer(owner, supplyAdjustment);
+        }
+        emit PriceAdjusted(currentPrice, currentSupply);
+    }
+
+    // Fungsi untuk mentransfer cadangan likuiditas
+    function transferLiquidity(address to, uint256 amount) external onlyOwner {
+        require(reserveLiquidity >= amount, "Cadangan likuiditas tidak cukup.");
+        reserveLiquidity -= amount;
+        payable(to).transfer(amount);
+    }
+
+    // Fungsi untuk melihat cadangan likuiditas
+    function viewLiquidity() external view returns (uint256) {
+        return reserveLiquidity;
+    }
+
+    // Fungsi fallback untuk menerima Ether
+    receive() external payable {
+        reserveLiquidity += msg.value;
+    }
+
+    // Fungsi untuk menarik Ether dari kontrak
+    function withdraw(uint256 amount) external onlyOwner {
+        require(amount <= address(this).balance, "Saldo tidak cukup.");
+        payable(owner).transfer(amount);
+    }
+}
+
+// Smart contract untuk tata kelola terdesentralisasi (DAO)
+contract PiStabilDAO {
+    address public owner;
+    uint256 public proposalCount = 0;
+    
+    struct Proposal {
+        uint256 id;
+        string description;
+        uint256 votesFor;
+        uint256 votesAgainst;
+        bool executed;
+        mapping(address => bool) voted;
+    }
+
+    mapping(uint256 => Proposal) public proposals;
+
+    // Event untuk proposal baru
+    event NewProposal(uint256 proposalId, string description);
+    
+    // Event untuk voting
+    event VoteCast(uint256 proposalId, address voter, bool vote);
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Hanya pemilik yang bisa melakukan ini.");
+        _;
+    }
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    // Fungsi untuk membuat proposal baru
+    function createProposal(string memory description) external onlyOwner {
+        proposalCount++;
+        Proposal storage newProposal = proposals[proposalCount];
+        newProposal.id = proposalCount;
+        newProposal.description = description;
+        newProposal.votesFor = 0;
+        newProposal.votesAgainst = 0;
+        newProposal.executed = false;
+        emit NewProposal(proposalCount, description);
+    }
+
+    // Fungsi untuk memberikan suara pada proposal
+    function voteOnProposal(uint256 proposalId, bool support) external {
+        Proposal storage proposal = proposals[proposalId];
+        require(!proposal.voted[msg.sender], "Anda sudah memberikan suara.");
+        require(!proposal.executed, "Proposal sudah dieksekusi.");
+
+        if (support) {
+            proposal.votesFor++;
+        } else {
+            proposal.votesAgainst++;
+        }
+
+        proposal.voted[msg.sender] = true;
+        emit VoteCast(proposalId, msg.sender, support);
+    }
+
+    // Fungsi untuk mengeksekusi proposal jika jumlah suara mendukung
+    function executeProposal(uint256 proposalId) external {
+        Proposal storage proposal = proposals[proposalId];
+        require(proposal.votesFor + proposal.votesAgainst > 0, "Tidak ada suara yang diberikan.");
+        require(!proposal.executed, "Proposal sudah dieksekusi.");
+
+        if (proposal.votesFor > proposal.votesAgainst) {
+            proposal.executed = true;
+            // Eksekusi tindakan terkait proposal, misalnya mengubah parameter harga atau supply
+        }
+    }
+}
