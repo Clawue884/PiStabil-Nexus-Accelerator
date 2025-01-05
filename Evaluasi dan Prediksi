@@ -1,0 +1,14 @@
+# Evaluasi model
+loss, mae = model.evaluate(X_test, y_test, verbose=1)
+print(f"Loss: {loss}, Mean Absolute Error: {mae}")
+
+# Prediksi performa node
+def predict_performance(input_features):
+    # Normalisasi input
+    input_scaled = scaler.transform([input_features])
+    return model.predict(input_scaled)[0][0]
+
+# Contoh prediksi untuk sebuah node
+node_features = [150, 50, 500, 95]  # Latency, CPU Usage, Bandwidth, Reliability
+predicted_score = predict_performance(node_features)
+print(f"Predicted Performance Score: {predicted_score}")
