@@ -1,0 +1,110 @@
+import random
+import time
+import numpy as np
+
+# Simulasi Data Performa Node
+class Node:
+    def __init__(self, id, latency, cpu_usage, bandwidth, reliability):
+        self.id = id
+        self.latency = latency  # Latency dalam ms
+        self.cpu_usage = cpu_usage  # Penggunaan CPU dalam persentase
+        self.bandwidth = bandwidth  # Bandwidth dalam Mbps
+        self.reliability = reliability  # Keandalan (0-100%)
+
+    def __str__(self):
+        return f"Node {self.id}: Latency={self.latency}ms, CPU Usage={self.cpu_usage}%, Bandwidth={self.bandwidth}Mbps, Reliability={self.reliability}%"
+
+# Algoritma untuk memilih node terbaik berdasarkan performa
+class NodeOptimizer:
+    def __init__(self, nodes):
+        self.nodes = nodes
+        self.selected_node = None
+
+    def evaluate_node(self, node):
+        # Menilai performa node berdasarkan metrik yang ada
+        # Membuat skor menggunakan bobot untuk setiap parameter
+        latency_score = max(0, 1 - node.latency / 1000)  # Latency: semakin kecil semakin baik
+        cpu_score = max(0, 1 - node.cpu_usage / 100)  # CPU: semakin rendah penggunaan semakin baik
+        bandwidth_score = node.bandwidth / 1000  # Bandwidth: semakin besar semakin baik
+        reliability_score = node.reliability / 100  # Keandalan: semakin tinggi semakin baik
+
+        # Skor total dihitung sebagai rata-rata tertimbang
+        total_score = (latency_score * 0.3 + cpu_score * 0.2 + bandwidth_score * 0.2 + reliability_score * 0.3)
+        return total_score
+
+    def select_optimal_node(self):
+        # Pilih node dengan performa terbaik
+        best_score = -float('inf')
+        for node in self.nodes:
+            score = self.evaluate_node(node)
+            if score > best_score:
+                best_score = score
+                self.selected_node = node
+        return self.selected_node
+
+# Algoritma Pembagian Beban
+class LoadBalancer:
+    def __init__(self, nodes, optimizer):
+        self.nodes = nodes
+        self.optimizer = optimizer
+        self.load_distribution = {}
+
+    def balance_load(self):
+        # Pilih node optimal terlebih dahulu
+        optimal_node = self.optimizer.select_optimal_node()
+        # Distribusikan beban berdasarkan performa node
+        total_load = 100  # Asumsi total beban 100% yang perlu dibagi
+        self.load_distribution[optimal_node.id] = total_load
+        # Tentukan beban untuk node lainnya berdasarkan performa
+        remaining_load = total_load / (len(self.nodes) - 1) if len(self.nodes) > 1 else 0
+        for node in self.nodes:
+            if node != optimal_node:
+                self.load_distribution[node.id] = remaining_load
+        return self.load_distribution
+
+# Simulasi monitoring dan pembaruan
+class NodeMonitor:
+    def __init__(self, nodes):
+        self.nodes = nodes
+
+    def simulate_performance_changes(self):
+        # Simulasikan perubahan performa node secara acak
+        for node in self.nodes:
+            node.latency = random.randint(50, 300)  # Latency acak antara 50ms hingga 300ms
+            node.cpu_usage = random.randint(20, 90)  # Penggunaan CPU acak antara 20% hingga 90%
+            node.bandwidth = random.randint(50, 1000)  # Bandwidth acak antara 50Mbps hingga 1000Mbps
+            node.reliability = random.randint(90, 100)  # Keandalan acak antara 90% hingga 100%
+
+    def display_nodes(self):
+        for node in self.nodes:
+            print(node)
+
+# Contoh penggunaan algoritma dan simulasi
+def main():
+    # Membuat beberapa node validator dengan data acak
+    nodes = [
+        Node(id=1, latency=random.randint(50, 300), cpu_usage=random.randint(20, 90), bandwidth=random.randint(50, 1000), reliability=random.randint(90, 100)),
+        Node(id=2, latency=random.randint(50, 300), cpu_usage=random.randint(20, 90), bandwidth=random.randint(50, 1000), reliability=random.randint(90, 100)),
+        Node(id=3, latency=random.randint(50, 300), cpu_usage=random.randint(20, 90), bandwidth=random.randint(50, 1000), reliability=random.randint(90, 100)),
+        Node(id=4, latency=random.randint(50, 300), cpu_usage=random.randint(20, 90), bandwidth=random.randint(50, 1000), reliability=random.randint(90, 100)),
+        Node(id=5, latency=random.randint(50, 300), cpu_usage=random.randint(20, 90), bandwidth=random.randint(50, 1000), reliability=random.randint(90, 100)),
+    ]
+
+    # Memulai monitoring node dan mengoptimalkan
+    monitor = NodeMonitor(nodes)
+    optimizer = NodeOptimizer(nodes)
+    load_balancer = LoadBalancer(nodes, optimizer)
+
+    for _ in range(5):  # Simulasi 5 iterasi untuk monitoring dan pembaruan
+        print("=== Iterasi Pembaruan Performa ===")
+        monitor.simulate_performance_changes()  # Simulasi perubahan performa node
+        monitor.display_nodes()  # Menampilkan status node setelah simulasi
+        
+        print("\n=== Distribusi Beban ===")
+        load_distribution = load_balancer.balance_load()  # Menyeimbangkan beban berdasarkan optimasi
+        print(load_distribution)
+        
+        time.sleep(1)  # Delay untuk simulasi pembaruan periodik
+
+if __name__ == "__main__":
+    main()
