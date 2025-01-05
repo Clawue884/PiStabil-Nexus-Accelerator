@@ -1,0 +1,198 @@
+---
+
+Struktur Proyek
+
+analytics-dashboard/
+├── backend/
+│   ├── server.js
+│   ├── routes/
+│   │   └── dataRoutes.js
+│   ├── models/
+│   │   └── DataModel.js
+│   └── config/
+│       └── db.js
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── Dashboard.js
+│   │   │   ├── ChartComponent.js
+│   │   │   └── RealTimeStats.js
+│   │   ├── App.js
+│   │   ├── index.js
+│   │   └── styles/
+│   │       └── Dashboard.css
+└── package.json
+
+
+---
+
+Kode Backend (Node.js + Express.js)
+
+1. Database Configuration (db.js)
+
+const mongoose = require('mongoose');
+
+const connectDB = async () => {
+    try {
+        await mongoose.connect('mongodb://localhost:27017/analytics', {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+        });
+        console.log('MongoDB Connected');
+    } catch (error) {
+        console.error(`Error: ${error.message}`);
+        process.exit(1);
+    }
+};
+
+module.exports = connectDB;
+
+2. Model (DataModel.js)
+
+const mongoose = require('mongoose');
+
+const DataSchema = mongoose.Schema({
+    metricName: { type: String, required: true },
+    value: { type: Number, required: true },
+    timestamp: { type: Date, default: Date.now },
+});
+
+module.exports = mongoose.model('Data', DataSchema);
+
+3. Routes (dataRoutes.js)
+
+const express = require('express');
+const router = express.Router();
+const Data = require('../models/DataModel');
+
+// Get all data
+router.get('/', async (req, res) => {
+    try {
+        const data = await Data.find();
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Add new data
+router.post('/', async (req, res) => {
+    const { metricName, value } = req.body;
+
+    try {
+        const newData = new Data({ metricName, value });
+        const savedData = await newData.save();
+        res.status(201).json(savedData);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
+module.exports = router;
+
+4. Main Server (server.js)
+
+const express = require('express');
+const connectDB = require('./config/db');
+const dataRoutes = require('./routes/dataRoutes');
+const http = require('http');
+const { Server } = require('socket.io');
+
+// Connect to database
+connectDB();
+
+const app = express();
+app.use(express.json());
+
+// API routes
+app.use('/api/data', dataRoutes);
+
+// Real-time updates with WebSocket
+const server = http.createServer(app);
+const io = new Server(server);
+
+io.on('connection', (socket) => {
+    console.log('A user connected');
+    socket.on('disconnect', () => {
+        console.log('A user disconnected');
+    });
+});
+
+// Emit data updates
+setInterval(async () => {
+    const data = await Data.find().sort({ timestamp: -1 }).limit(10);
+    io.emit('updateData', data);
+}, 5000);
+
+server.listen(5000, () => console.log('Server running on port 5000'));
+
+
+---
+
+Kode Frontend (React.js)
+
+1. Komponen Dasbor (Dashboard.js)
+
+import React, { useState, useEffect } from 'react';
+import ChartComponent from './ChartComponent';
+import RealTimeStats from './RealTimeStats';
+import './styles/Dashboard.css';
+
+const Dashboard = () => {
+    const [data, setData] = useState([]);
+
+    useEffect(() => {
+        const socket = new WebSocket('ws://localhost:5000');
+        socket.onmessage = (event) => {
+            const newData = JSON.parse(event.data);
+            setData(newData);
+        };
+
+        return () => socket.close();
+    }, []);
+
+    return (
+        <div className="dashboard">
+            <h1>Analytics Dashboard</h1>
+            <ChartComponent data={data} />
+            <RealTimeStats data={data} />
+        </div>
+    );
+};
+
+export default Dashboard;
+
+2. Komponen Grafik (ChartComponent.js)
+
+import React from 'react';
+import { Line } from 'react-chartjs-2';
+
+const ChartComponent = ({ data }) => {
+    const chartData = {
+        labels: data.map((d) => new Date(d.timestamp).toLocaleTimeString()),
+        datasets: [
+            {
+                label: 'Metric Value',
+                data: data.map((d) => d.value),
+                fill: false,
+                borderColor: 'rgba(75,192,192,1)',
+            },
+        ],
+    };
+
+    return <Line data={chartData} />;
+};
+
+export default ChartComponent;
+
+3. Komponen Statistik Real-Time (RealTimeStats.js)
+
+import React from 'react';
+
+const RealTimeStats = ({ data }) => {
+    const latest = data[0] || {};
+
+    return (
+        <div className="realtime-stats">
+            <h2>Latest Metrics</h2>
+            <p><strong>Metric Name:</strong> {latest.metricName
