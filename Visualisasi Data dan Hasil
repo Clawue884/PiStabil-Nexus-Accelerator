@@ -1,0 +1,18 @@
+import matplotlib.pyplot as plt
+
+# Visualisasi loss selama pelatihan
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.title('Loss During Training')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+plt.show()
+
+# Visualisasi distribusi beban
+node_ids = [f"Node {i+1}" for i in range(len(nodes))]
+plt.bar(node_ids, load_distribution, color='skyblue')
+plt.title('Load Distribution Across Nodes')
+plt.xlabel('Nodes')
+plt.ylabel('Load (%)')
+plt.show()
