@@ -1,0 +1,140 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract LiquidityReserveProtocol {
+    // Deklarasi event
+    event LiquidityAdded(address indexed provider, uint256 amountA, uint256 amountB, uint256 liquidityTokens);
+    event LiquidityRemoved(address indexed provider, uint256 amountA, uint256 amountB);
+    event Swap(address indexed trader, address tokenIn, uint256 amountIn, address tokenOut, uint256 amountOut);
+
+    // Token address
+    address public tokenA;
+    address public tokenB;
+
+    // Reserve token
+    uint256 public reserveA;
+    uint256 public reserveB;
+
+    // Mapping untuk likuiditas
+    mapping(address => uint256) public liquidityTokens;
+    uint256 public totalLiquidity;
+
+    // Fee
+    uint256 public constant FEE = 3; // Fee 0.3% (basis poin)
+
+    // Constructor
+    constructor(address _tokenA, address _tokenB) {
+        tokenA = _tokenA;
+        tokenB = _tokenB;
+    }
+
+    // Fungsi untuk menambahkan likuiditas
+    function addLiquidity(uint256 amountA, uint256 amountB) external returns (uint256 liquidity) {
+        require(amountA > 0 && amountB > 0, "Invalid amounts");
+
+        // Transfer token ke kontrak
+        require(IERC20(tokenA).transferFrom(msg.sender, address(this), amountA), "Transfer tokenA failed");
+        require(IERC20(tokenB).transferFrom(msg.sender, address(this), amountB), "Transfer tokenB failed");
+
+        // Perhitungan likuiditas
+        if (totalLiquidity == 0) {
+            liquidity = sqrt(amountA * amountB);
+        } else {
+            liquidity = min(
+                (amountA * totalLiquidity) / reserveA,
+                (amountB * totalLiquidity) / reserveB
+            );
+        }
+
+        require(liquidity > 0, "Insufficient liquidity");
+
+        // Update reserve
+        reserveA += amountA;
+        reserveB += amountB;
+
+        // Beri token likuiditas
+        liquidityTokens[msg.sender] += liquidity;
+        totalLiquidity += liquidity;
+
+        emit LiquidityAdded(msg.sender, amountA, amountB, liquidity);
+    }
+
+    // Fungsi untuk menarik likuiditas
+    function removeLiquidity(uint256 liquidity) external returns (uint256 amountA, uint256 amountB) {
+        require(liquidity > 0 && liquidityTokens[msg.sender] >= liquidity, "Invalid liquidity amount");
+
+        // Hitung jumlah token yang akan ditarik
+        amountA = (liquidity * reserveA) / totalLiquidity;
+        amountB = (liquidity * reserveB) / totalLiquidity;
+
+        require(amountA > 0 && amountB > 0, "Invalid withdraw amounts");
+
+        // Update reserve
+        reserveA -= amountA;
+        reserveB -= amountB;
+
+        // Kurangi likuiditas
+        liquidityTokens[msg.sender] -= liquidity;
+        totalLiquidity -= liquidity;
+
+        // Transfer token ke penyedia
+        require(IERC20(tokenA).transfer(msg.sender, amountA), "Transfer tokenA failed");
+        require(IERC20(tokenB).transfer(msg.sender, amountB), "Transfer tokenB failed");
+
+        emit LiquidityRemoved(msg.sender, amountA, amountB);
+    }
+
+    // Fungsi untuk melakukan swap
+    function swap(address tokenIn, uint256 amountIn) external returns (uint256 amountOut) {
+        require(amountIn > 0, "Invalid input amount");
+        require(tokenIn == tokenA || tokenIn == tokenB, "Invalid token");
+
+        bool isTokenA = tokenIn == tokenA;
+
+        uint256 reserveIn = isTokenA ? reserveA : reserveB;
+        uint256 reserveOut = isTokenA ? reserveB : reserveA;
+
+        // Hitung jumlah output berdasarkan Constant Product Formula
+        uint256 amountInWithFee = (amountIn * (1000 - FEE)) / 1000;
+        amountOut = (reserveOut * amountInWithFee) / (reserveIn + amountInWithFee);
+
+        require(amountOut > 0, "Insufficient output amount");
+
+        // Update reserve
+        if (isTokenA) {
+            reserveA += amountIn;
+            reserveB -= amountOut;
+        } else {
+            reserveB += amountIn;
+            reserveA -= amountOut;
+        }
+
+        // Transfer token
+        require(IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn), "Transfer tokenIn failed");
+        address tokenOut = isTokenA ? tokenB : tokenA;
+        require(IERC20(tokenOut).transfer(msg.sender, amountOut), "Transfer tokenOut failed");
+
+        emit Swap(msg.sender, tokenIn, amountIn, tokenOut, amountOut);
+    }
+
+    // Fungsi bantu: akar kuadrat
+    function sqrt(uint256 x) internal pure returns (uint256) {
+        uint256 z = (x + 1) / 2;
+        uint256 y = x;
+        while (z < y) {
+            y = z;
+            z = (x / z + z) / 2;
+        }
+        return y;
+    }
+
+    // Fungsi bantu: nilai minimum
+    function min(uint256 x, uint256 y) internal pure returns (uint256) {
+        return x < y ? x : y;
+    }
+}
+
+interface IERC20 {
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+}
