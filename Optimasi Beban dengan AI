@@ -1,0 +1,19 @@
+# Distribusi Beban Berdasarkan Prediksi
+def distribute_load(nodes, total_load=100):
+    scores = [predict_performance(node) for node in nodes]
+    total_score = sum(scores)
+    load_distribution = [round((score / total_score) * total_load, 2) for score in scores]
+    return load_distribution
+
+# Simulasi node
+nodes = [
+    [150, 60, 800, 97],
+    [200, 70, 600, 92],
+    [100, 40, 900, 98],
+    [180, 80, 400, 90]
+]
+
+# Menghitung distribusi beban
+load_distribution = distribute_load(nodes)
+for i, load in enumerate(load_distribution):
+    print(f"Node {i+1}: {load}% load")
