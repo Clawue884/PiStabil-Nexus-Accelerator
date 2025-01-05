@@ -1,0 +1,93 @@
+const axios = require('axios');
+const WebSocket = require('ws');
+const crypto = require('crypto');
+const fs = require('fs');
+const { ethers } = require('ethers');
+require('dotenv').config();
+
+// Load RSA keys
+const privateKey = fs.readFileSync('./config/keys/private.pem', 'utf8');
+const publicKey = fs.readFileSync('./config/keys/public.pem', 'utf8');
+
+// Environment Variables
+const API_URL = process.env.API_URL;
+const ETHEREUM_RPC_URL = process.env.ETHEREUM_RPC_URL;
+const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
+const PRIVATE_KEY = process.env.PRIVATE_KEY;
+
+// Ethers.js setup
+const provider = new ethers.JsonRpcProvider(ETHEREUM_RPC_URL);
+const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+const contractABI = [
+    // Tambahkan ABI kontrak pintar Anda di sini
+];
+const contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, wallet);
+
+// Encryption functions
+const encryptData = (data) => {
+    const buffer = Buffer.from(JSON.stringify(data));
+    return crypto.publicEncrypt(publicKey, buffer).toString('base64');
+};
+
+const decryptData = (encryptedData) => {
+    const buffer = Buffer.from(encryptedData, 'base64');
+    return JSON.parse(crypto.privateDecrypt(privateKey, buffer).toString('utf8'));
+};
+
+// Hashing functions
+const hashData = (data) => {
+    return crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
+};
+
+const verifyHash = (data, hash) => {
+    return hashData(data) === hash;
+};
+
+// Function to send data to smart contract
+const sendToSmartContract = async (data, hash) => {
+    try {
+        const tx = await contract.storeData(JSON.stringify(data), hash);
+        console.log(`Transaction Hash: ${tx.hash}`);
+    } catch (error) {
+        console.error('Error sending data to smart contract:', error.message);
+    }
+};
+
+// Function to fetch external data
+const fetchExternalData = async () => {
+    try {
+        const response = await axios.get(API_URL);
+        const data = response.data;
+
+        // Generate hash for data validation
+        const hash = hashData(data);
+        console.log(`Data Hash: ${hash}`);
+
+        // Send data to smart contract
+        await sendToSmartContract(data, hash);
+
+        return { data, hash };
+    } catch (error) {
+        console.error('Error fetching external data:', error.message);
+        return null;
+    }
+};
+
+// WebSocket server setup
+const wsServer = new WebSocket.Server({ port: 8080 });
+
+wsServer.on('connection', (socket) => {
+    console.log('Client connected to Oracle');
+
+    // Send real-time data to client
+    setInterval(async () => {
+        const result = await fetchExternalData();
+        if (result) {
+            const encryptedData = encryptData(result.data);
+            socket.send(JSON.stringify({ data: encryptedData, hash: result.hash }));
+        }
+    }, 5000); // Fetch data every 5 seconds
+});
+
+// Start Oracle
+console.log('Oracle is running on port 8080...');
