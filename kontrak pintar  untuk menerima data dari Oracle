@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract OracleContract {
+    struct Data {
+        string data;
+        string hash;
+    }
+
+    mapping(uint256 => Data) public dataStore;
+    uint256 public dataCount;
+
+    event DataStored(uint256 indexed id, string data, string hash);
+
+    function storeData(string memory _data, string memory _hash) public {
+        dataStore[dataCount] = Data(_data, _hash);
+        emit DataStored(dataCount, _data, _hash);
+        dataCount++;
+    }
+}
