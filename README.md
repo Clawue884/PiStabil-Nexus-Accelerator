@@ -60,10 +60,62 @@ PiStabil-Nexus-Accelerator/
 ├── README.md        # Dokumentasi utama
 
 
----
+----
 
 📖 Cara Memulai
 
 1. Clone repositori ini:
 
 git clone https://github.com/your-repo/PiStabil-Nexus-Accelerator.git
+
+
+2. Masuk ke direktori proyek:
+
+cd PiStabil-Nexus-Accelerator
+
+
+3. Instal dependensi:
+
+npm install
+
+
+4. Jalankan proyek secara lokal:
+
+npm start
+
+
+
+
+---
+
+🤝 Kontribusi
+
+Kami menerima kontribusi dari semua pihak yang ingin mendukung keberhasilan proyek ini. Harap ikuti langkah berikut untuk berkontribusi:
+
+1. Fork repositori ini.
+
+
+2. Buat branch baru untuk fitur atau perbaikan Anda.
+
+
+3. Kirimkan pull request dengan deskripsi lengkap.
+
+
+
+
+---
+
+📜 Lisensi
+
+Proyek ini dilisensikan di bawah MIT License.
+
+
+---
+
+🌐 Hubungi Kami
+
+Email: contact@pistabilnexus.com
+
+Website: pistabilnexus.com
+
+Komunitas: Pi Network Forum
