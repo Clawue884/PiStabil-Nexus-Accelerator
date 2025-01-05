@@ -1,0 +1,42 @@
+Konsep Utama:
+
+1. Pengumpulan Data: Menggunakan data historis performa node.
+
+
+2. Pelatihan Model AI: Melatih model pembelajaran mesin untuk memprediksi performa node berdasarkan fitur seperti latency, CPU usage, bandwidth, dan reliability.
+
+
+3. Optimasi Beban: Menggunakan model AI untuk memilih node optimal dan mendistribusikan beban secara cerdas.
+Impor dan Persiapan Data
+
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
+
+# Membuat dataset simulasi performa node
+def generate_dataset(num_samples=1000):
+    data = {
+        "latency": np.random.randint(50, 300, num_samples),          # Latency dalam ms
+        "cpu_usage": np.random.randint(20, 90, num_samples),         # Penggunaan CPU dalam %
+        "bandwidth": np.random.randint(50, 1000, num_samples),       # Bandwidth dalam Mbps
+        "reliability": np.random.randint(90, 100, num_samples),      # Keandalan dalam %
+        "performance_score": np.random.uniform(0.5, 1.0, num_samples) # Skor performa (0.5-1.0)
+    }
+    return pd.DataFrame(data)
+
+# Dataset simulasi
+data = generate_dataset()
+
+# Fitur dan label
+X = data[["latency", "cpu_usage", "bandwidth", "reliability"]]
+y = data["performance_score"]
+
+# Normalisasi data
+scaler = MinMaxScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Membagi data menjadi training dan testing
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
